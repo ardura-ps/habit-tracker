@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>습관 트래커</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
@@ -27,12 +27,16 @@
       --muted: #656d76;
       --border: #d0d7de;
       --accent: #2da44e;
+      --accent-text: #1a7f37;
       --today: #dafbe1;
+      --danger: #cf222e;
+      --cell-line: rgba(27, 31, 36, 0.06);
       --lv0: #ebedf0;
       --lv1: #9be9a8;
       --lv2: #40c463;
       --lv3: #30a14e;
       --lv4: #216e39;
+      --cell: 12px;
       color-scheme: light;
     }
 
@@ -45,7 +49,10 @@
         --muted: #8d96a0;
         --border: #30363d;
         --accent: #238636;
+        --accent-text: #3fb950;
         --today: #12261e;
+        --danger: #f85149;
+        --cell-line: rgba(255, 255, 255, 0.05);
         --lv0: #21262d;
         --lv1: #0e4429;
         --lv2: #006d32;
@@ -62,7 +69,10 @@
       --muted: #8d96a0;
       --border: #30363d;
       --accent: #238636;
+      --accent-text: #3fb950;
       --today: #12261e;
+      --danger: #f85149;
+      --cell-line: rgba(255, 255, 255, 0.05);
       --lv0: #21262d;
       --lv1: #0e4429;
       --lv2: #006d32;
@@ -73,6 +83,8 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html { -webkit-tap-highlight-color: transparent; }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
       background: var(--bg);
@@ -80,10 +92,13 @@
       line-height: 1.5;
     }
 
+    /* 설치한 앱에서 노치·홈 바 영역을 피한다 */
     .container {
       max-width: 900px;
       margin: 0 auto;
-      padding: 32px 16px;
+      padding:
+        calc(24px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+        calc(96px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
     }
 
     header {
@@ -92,11 +107,20 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
-    header h1 { font-size: 1.6rem; }
-    header .today { color: var(--muted); font-size: 0.95rem; }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .brand svg { width: 30px; height: 30px; flex-shrink: 0; }
+
+    header .today { color: var(--muted); font-size: 0.9rem; }
 
     .header-right {
       display: flex;
@@ -109,12 +133,24 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
-    .card h2 {
-      font-size: 1.1rem;
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
       margin-bottom: 14px;
+    }
+
+    .card h2 { font-size: 1.05rem; }
+    .card > h2 { margin-bottom: 14px; }
+
+    .card h3 {
+      font-size: 0.9rem;
+      margin-bottom: 10px;
     }
 
     .empty {
@@ -123,25 +159,30 @@
       padding: 8px 0;
     }
 
-    /* 습관 추가 폼 */
-    .add-form {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+    .hint {
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 400;
     }
 
-    .add-form input[type="text"] {
-      flex: 1;
-      min-width: 180px;
+    /* 입력 요소 */
+    input[type="text"],
+    input[type="number"],
+    input[type="time"],
+    textarea {
       padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 8px;
       font-size: 1rem;
+      font-family: inherit;
       background: var(--card);
       color: var(--text);
     }
 
-    .add-form input[type="color"] {
+    input[type="number"] { width: 80px; }
+    textarea { width: 100%; resize: vertical; }
+
+    input[type="color"] {
       width: 44px;
       height: 44px;
       border: 1px solid var(--border);
@@ -149,6 +190,48 @@
       padding: 2px;
       background: none;
       cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* 요일 선택 칩 */
+    .chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chip { position: relative; }
+
+    .chip input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .chip span {
+      display: inline-grid;
+      place-content: center;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: var(--lv0);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .chip input:checked + span {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .chip input:focus-visible + span {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
     button {
@@ -158,6 +241,7 @@
       background: var(--accent);
       color: #fff;
       font-size: 1rem;
+      font-family: inherit;
       cursor: pointer;
     }
 
@@ -169,32 +253,194 @@
       font-size: 0.85rem;
     }
 
-    button.ghost.checked {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
+    button.ghost.danger { color: var(--danger); }
+    button.small { padding: 6px 12px; font-size: 0.85rem; }
+    button.icon { padding: 6px 10px; }
 
     button:disabled {
       opacity: 0.4;
       cursor: default;
     }
 
-    /* 통계 */
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* 잔디 칸 모양 체크박스: 목표를 채운 만큼 아래에서부터 차오른다 */
+    .tick {
+      -webkit-appearance: none;
+      appearance: none;
+      display: inline-grid;
+      place-content: center;
+      flex-shrink: 0;
+      width: 30px;
+      height: 30px;
+      margin: 0;
+      border-radius: 7px;
+      border: 1px solid var(--cell-line);
+      background: linear-gradient(to top, var(--c) calc(var(--p, 0) * 100%), var(--lv0) 0);
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    .tick:checked {
+      background: var(--c);
+      border-color: transparent;
+    }
+
+    .tick:checked::after {
+      content: "";
+      width: 7px;
+      height: 13px;
+      border: solid #fff;
+      border-width: 0 3px 3px 0;
+      transform: translateY(-1px) rotate(45deg);
+    }
+
+    .tick:active:not(:disabled) { transform: scale(0.9); }
+
+    .tick:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .tick:disabled { opacity: 0.3; cursor: default; }
+
+    .tick.sm {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+    }
+
+    .tick.sm:checked::after {
+      width: 6px;
+      height: 11px;
+      border-width: 0 2.5px 2.5px 0;
+    }
+
+    /* 쉬는 요일: 점선 빈칸 */
+    .tick.off:not(:checked) {
+      background: transparent;
+      border: 1px dashed var(--border);
+    }
+
+    /* 알림 배너 */
+    .banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      background: var(--today);
+      font-size: 0.95rem;
+    }
+
+    .banner[hidden] { display: none; }
+    .banner button { flex-shrink: 0; }
+
+    /* 나의 잔디 (맨 위) */
+    .hero-summary {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .hero-summary strong { color: var(--accent-text); }
+
     .stats {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      gap: 10px;
+      margin-bottom: 18px;
     }
 
     .stat {
-      text-align: center;
-      padding: 16px 8px;
+      padding: 12px 8px;
       border: 1px solid var(--border);
       border-radius: 10px;
+      text-align: center;
     }
 
-    .stat .value { font-size: 1.6rem; font-weight: 700; }
-    .stat .label { color: var(--muted); font-size: 0.85rem; }
+    .stat .value { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stat .label { color: var(--muted); font-size: 0.8rem; }
+
+    /* 잔디 그리드: 열 = 주(월~일), 맨 오른쪽 열 = 이번 주 */
+    .grass-board {
+      display: flex;
+      gap: 6px;
+    }
+
+    .grass-days {
+      display: grid;
+      grid-template-rows: repeat(7, var(--cell));
+      gap: 3px;
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: var(--cell);
+    }
+
+    .grass-scroll {
+      overflow-x: auto;
+      scrollbar-width: thin;
+      padding-bottom: 4px;
+    }
+
+    .grass-months {
+      display: grid;
+      grid-auto-columns: var(--cell);
+      grid-template-rows: 16px;
+      gap: 3px;
+      margin-bottom: 4px;
+      width: max-content;
+      color: var(--muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .grass {
+      display: grid;
+      grid-template-rows: repeat(7, var(--cell));
+      grid-auto-flow: column;
+      grid-auto-columns: var(--cell);
+      gap: 3px;
+      width: max-content;
+    }
+
+    .cell {
+      display: inline-block;
+      width: var(--cell);
+      height: var(--cell);
+      border-radius: 3px;
+      background: var(--lv0);
+      outline: 1px solid var(--cell-line);
+      outline-offset: -1px;
+    }
+
+    .cell.lv1 { background: var(--lv1); }
+    .cell.lv2 { background: var(--lv2); }
+    .cell.lv3 { background: var(--lv3); }
+    .cell.lv4 { background: var(--lv4); }
+    .cell.future { background: transparent; outline: none; }
+    .cell.is-today { outline: 2px solid var(--text); outline-offset: -1px; }
+    .cell.clickable { cursor: pointer; }
+    .cell.clickable:hover { outline: 1px solid var(--muted); }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 3px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .legend span:first-child { margin-right: 4px; }
+    .legend span:last-child { margin-left: 4px; }
 
     /* 오늘 할 일 */
     .todo-list { list-style: none; }
@@ -202,45 +448,57 @@
     .todo-list li {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 4px;
+      gap: 12px;
+      padding: 10px 2px;
       border-top: 1px solid var(--border);
     }
 
     .todo-list li:first-child { border-top: none; }
 
-    .todo-list input[type="checkbox"],
-    .week-table input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
+    .todo-main { flex: 1; min-width: 0; }
+
+    .todo-list label {
+      display: block;
       cursor: pointer;
+      overflow-wrap: anywhere;
     }
 
-    .todo-list label { cursor: pointer; }
+    .todo-list li.done label { color: var(--muted); }
 
-    .todo-list li.done label {
+    .todo-note {
       color: var(--muted);
-      text-decoration: line-through;
+      font-size: 0.8rem;
+      overflow-wrap: anywhere;
     }
+
+    .counter {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .counter .count {
+      min-width: 40px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-size: 0.9rem;
+    }
+
+    .todo-off {
+      margin-top: 8px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .todo-off[hidden] { display: none; }
 
     /* 주간 체크표 */
-    .week-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .week-head h2 { margin-bottom: 0; }
-
     .week-nav {
       display: flex;
       align-items: center;
       gap: 8px;
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     .week-wrap { overflow-x: auto; }
@@ -253,147 +511,337 @@
 
     .week-table th,
     .week-table td {
-      padding: 8px 6px;
+      padding: 6px 4px;
       text-align: center;
       border-bottom: 1px solid var(--border);
       white-space: nowrap;
     }
 
-    .week-table th { color: var(--muted); font-weight: 500; }
-    .week-table th small { display: block; font-size: 0.75rem; }
+    .week-table th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
+    .week-table th small { display: block; font-size: 0.7rem; }
 
+    /* 좁은 화면에서 가로로 밀어도 습관 이름은 고정 */
     .week-table td:first-child,
     .week-table th:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      max-width: 8em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 10px;
+      background: var(--card);
       text-align: left;
       font-weight: 600;
       color: var(--text);
     }
 
-    .week-table .is-today { background: var(--today); }
-    .week-table input:disabled { cursor: default; }
-    .week-table .rate { color: var(--muted); }
+    .week-table td { vertical-align: middle; }
+    .week-table .tick { vertical-align: middle; }
+    .week-table th.is-today { color: var(--accent-text); font-weight: 700; }
+    .week-table .rate { color: var(--muted); font-size: 0.85rem; }
 
-    /* 습관 목록 */
+    /* 내 습관 */
     .habit {
       border-top: 1px solid var(--border);
       padding: 16px 0;
     }
 
     .habit:first-child { border-top: none; padding-top: 0; }
+    .habit:last-child { padding-bottom: 0; }
 
     .habit-head {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
+      align-items: flex-start;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .habit-name {
       display: flex;
       align-items: center;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 2px 8px;
+      min-width: 0;
       font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .habit-meta {
+      width: 100%;
+      padding-left: 20px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 400;
     }
 
     .dot {
       width: 12px;
       height: 12px;
-      border-radius: 50%;
+      border-radius: 3px;
       flex-shrink: 0;
     }
 
-    .streak { color: var(--muted); font-size: 0.85rem; font-weight: 400; }
-
-    .habit-actions { display: flex; gap: 6px; }
-
-    /* 잔디 그리드: 열 = 주(월~일), 맨 오른쪽 열 = 이번 주 */
-    .grass-wrap { overflow-x: auto; }
-
-    .grass {
-      display: grid;
-      grid-template-rows: repeat(7, 12px);
-      grid-auto-flow: column;
-      grid-auto-columns: 12px;
-      gap: 3px;
-      width: max-content;
-    }
-
-    .cell {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
-      background: var(--lv0);
-    }
-
-    .cell.lv1 { background: var(--lv1); }
-    .cell.lv2 { background: var(--lv2); }
-    .cell.lv3 { background: var(--lv3); }
-    .cell.lv4 { background: var(--lv4); }
-    .cell.future { background: transparent; }
-    .cell.clickable { cursor: pointer; }
-    .cell.clickable:hover { outline: 1px solid var(--muted); }
-
-    .legend {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 4px;
-      margin-top: 8px;
+    .streak {
       color: var(--muted);
       font-size: 0.8rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .habit-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .archived { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+    .archived summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .archived-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .archived-row:first-of-type { border-top: none; }
+
+    /* 상세 통계: 가로 막대 */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+    }
+
+    .bars { display: flex; flex-direction: column; gap: 8px; }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(0, 6.5em) 1fr 3.2em;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+
+    .bar-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bar-track {
+      height: 10px;
+      border-radius: 4px;
+      background: var(--lv0);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: var(--accent);
+    }
+
+    .bar-value {
+      text-align: right;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 설정 · 백업 */
+    .settings {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .setting-row strong { min-width: 5em; }
+    .setting-row .hint { width: 100%; }
+
+    /* 대화상자 */
+    dialog {
+      margin: auto;
+      width: min(440px, calc(100% - 32px));
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--text);
+    }
+
+    dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+    dialog h2 { font-size: 1.1rem; margin-bottom: 16px; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .field-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .field-row input[type="text"] { flex: 1; min-width: 0; }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .dialog-actions .spacer { flex: 1; }
+
+    /* 되돌리기 알림 */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(20px + env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: max-content;
+      max-width: calc(100% - 32px);
+      padding: 10px 10px 10px 16px;
+      border-radius: 10px;
+      background: var(--text);
+      color: var(--bg);
+      font-size: 0.9rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    .toast[hidden] { display: none; }
+
+    .toast button {
+      padding: 6px 12px;
+      background: transparent;
+      border: 1px solid currentColor;
+      color: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
     }
 
     footer {
       text-align: center;
       color: var(--muted);
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       margin-top: 12px;
     }
 
+    /* 손가락으로 누르는 기기: 버튼을 조금 더 크게 */
+    @media (pointer: coarse) {
+      button.ghost { min-height: 36px; }
+      button.icon { min-width: 36px; }
+    }
+
     @media (max-width: 520px) {
-      .stats { grid-template-columns: 1fr; }
+      .card { padding: 14px; }
+      .brand { font-size: 1.2rem; }
+      .stat .value { font-size: 1.2rem; }
+      .stat .label { font-size: 0.72rem; }
+      .week-table th, .week-table td { padding: 6px 2px; }
+      .week-table td:first-child, .week-table th:first-child { max-width: 4.5em; padding-right: 6px; }
+      .tick.sm { width: 22px; height: 22px; }
+      .week-table td.rate, .week-table th:last-child { padding: 6px 0; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🌱 습관 트래커</h1>
+      <div class="brand">
+        <svg viewBox="0 0 30 30" aria-hidden="true">
+          <rect width="30" height="30" rx="7" fill="#2da44e" />
+          <g fill="#fff">
+            <rect x="6" y="6" width="5" height="5" rx="1.2" opacity="0.4" />
+            <rect x="12.5" y="6" width="5" height="5" rx="1.2" opacity="0.7" />
+            <rect x="19" y="6" width="5" height="5" rx="1.2" />
+            <rect x="6" y="12.5" width="5" height="5" rx="1.2" opacity="0.7" />
+            <rect x="12.5" y="12.5" width="5" height="5" rx="1.2" />
+            <rect x="19" y="12.5" width="5" height="5" rx="1.2" opacity="0.4" />
+            <rect x="6" y="19" width="5" height="5" rx="1.2" />
+            <rect x="12.5" y="19" width="5" height="5" rx="1.2" opacity="0.4" />
+            <rect x="19" y="19" width="5" height="5" rx="1.2" opacity="0.7" />
+          </g>
+        </svg>
+        습관 트래커
+      </div>
       <div class="header-right">
         <span class="today" id="today-label"></span>
         <button class="ghost" id="theme-toggle" title="테마 전환"></button>
       </div>
     </header>
 
-    <!-- 습관 추가 -->
-    <section class="card">
-      <h2>새 습관 추가</h2>
-      <form class="add-form" id="add-form">
-        <input type="text" id="habit-name" placeholder="예: 물 2L 마시기" maxlength="40" autocomplete="off" />
-        <input type="color" id="habit-color" value="#2da44e" title="습관 색상" />
-        <button type="submit">추가</button>
-      </form>
-    </section>
+    <!-- 새 버전 안내 -->
+    <div class="banner" id="update-banner" hidden>
+      <span>✨ 새 버전이 준비됐어요.</span>
+      <button class="small" id="update-reload">새로고침</button>
+    </div>
 
-    <!-- 통계 -->
+    <!-- 알림 시각이 지났는데 남은 습관이 있으면 표시 -->
+    <div class="banner" id="reminder-banner" hidden>
+      <span id="reminder-text"></span>
+      <button class="ghost" id="reminder-close">오늘은 그만</button>
+    </div>
+
+    <!-- 나의 잔디: 그날 해야 했던 습관 중 완료한 비율로 진하기 결정 -->
     <section class="card">
-      <h2>오늘의 현황</h2>
+      <div class="card-head">
+        <h2>나의 잔디</h2>
+        <span class="hero-summary" id="hero-summary"></span>
+      </div>
       <div class="stats">
         <div class="stat">
-          <div class="value" id="stat-today">0 / 0</div>
-          <div class="label">오늘 완료</div>
+          <div class="value" id="stat-today">-</div>
+          <div class="label" id="stat-today-label">오늘 진행률</div>
         </div>
         <div class="stat">
           <div class="value" id="stat-streak">0일</div>
-          <div class="label">최장 연속 기록</div>
+          <div class="label">최장 연속</div>
         </div>
         <div class="stat">
           <div class="value" id="stat-month">-</div>
-          <div class="label">이번 달 달성률</div>
+          <div class="label">이번 달</div>
         </div>
+      </div>
+      <div class="grass-board">
+        <div class="grass-days" aria-hidden="true">
+          <span></span><span>월</span><span></span><span>수</span><span></span><span>금</span><span></span>
+        </div>
+        <div class="grass-scroll" data-scroll="overall">
+          <div class="grass-months" id="overall-months"></div>
+          <div class="grass" id="overall-grass"></div>
+        </div>
+      </div>
+      <div class="legend">
+        <span>적음</span>
+        <i class="cell"></i>
+        <i class="cell lv1"></i>
+        <i class="cell lv2"></i>
+        <i class="cell lv3"></i>
+        <i class="cell lv4"></i>
+        <span>많음</span>
       </div>
     </section>
 
@@ -401,16 +849,17 @@
     <section class="card">
       <h2>오늘 할 일</h2>
       <ul class="todo-list" id="todo-list"></ul>
+      <p class="hint todo-off" id="todo-off" hidden></p>
     </section>
 
     <!-- 주간 체크표 -->
     <section class="card">
-      <div class="week-head">
+      <div class="card-head">
         <h2>주간 체크표</h2>
         <div class="week-nav">
-          <button class="ghost" id="week-prev" title="지난주">◀</button>
+          <button class="ghost icon" id="week-prev" title="지난주">◀</button>
           <span id="week-range"></span>
-          <button class="ghost" id="week-next" title="다음 주">▶</button>
+          <button class="ghost icon" id="week-next" title="다음 주">▶</button>
         </div>
       </div>
       <div class="week-wrap">
@@ -418,46 +867,187 @@
       </div>
     </section>
 
-    <!-- 전체 기록 잔디: 그날 완료한 습관 비율로 진하기 결정 -->
+    <!-- 내 습관: 습관별 잔디는 완료한 날을 습관 색으로 칠함 -->
     <section class="card">
-      <h2>전체 기록 (최근 20주)</h2>
-      <div class="grass-wrap"><div class="grass" id="overall-grass"></div></div>
-      <div class="legend">
-        0%
-        <span class="cell"></span>
-        <span class="cell lv1"></span>
-        <span class="cell lv2"></span>
-        <span class="cell lv3"></span>
-        <span class="cell lv4"></span>
-        100%
+      <div class="card-head">
+        <h2>내 습관 <span class="hint">최근 1년</span></h2>
+        <button class="small" id="add-btn">＋ 새 습관</button>
+      </div>
+      <div id="habit-list"></div>
+      <div id="archived-list"></div>
+    </section>
+
+    <!-- 상세 통계 -->
+    <section class="card">
+      <h2>통계</h2>
+      <div class="chart-grid">
+        <div>
+          <h3>습관별 달성률 <span class="hint">최근 30일</span></h3>
+          <div class="bars" id="chart-habits"></div>
+        </div>
+        <div>
+          <h3>요일별 달성률 <span class="hint">최근 12주</span></h3>
+          <div class="bars" id="chart-weekday"></div>
+        </div>
+        <div>
+          <h3>월별 달성률 <span class="hint">최근 6개월</span></h3>
+          <div class="bars" id="chart-month"></div>
+        </div>
       </div>
     </section>
 
-    <!-- 습관 목록: 습관별 잔디는 완료한 날을 습관 색으로 칠함 -->
+    <!-- 설정 · 백업 -->
     <section class="card">
-      <h2>내 습관</h2>
-      <div id="habit-list"></div>
+      <h2>설정 · 백업</h2>
+      <div class="settings">
+        <div class="setting-row">
+          <strong>백업</strong>
+          <button class="ghost" id="export-btn">파일로 내보내기</button>
+          <button class="ghost" id="import-btn">파일에서 불러오기</button>
+          <input type="file" id="import-file" accept=".json,application/json" hidden />
+          <p class="hint" id="backup-info"></p>
+        </div>
+        <div class="setting-row">
+          <strong>알림 시각</strong>
+          <input type="time" id="reminder-time" />
+          <button class="ghost" id="reminder-clear">끄기</button>
+          <p class="hint">이 시각이 지나서 앱을 열었을 때 아직 안 한 습관이 있으면 위쪽에 알려 줍니다. 앱이 꺼져 있을 때는 알림이 오지 않습니다.</p>
+        </div>
+      </div>
     </section>
 
-    <footer>데이터는 이 브라우저에만 저장됩니다.</footer>
+    <footer>데이터는 이 브라우저에만 저장됩니다. 가끔 백업 파일로 내보내 두세요. · <span id="app-version"></span></footer>
+  </div>
+
+  <!-- 습관 추가 / 수정 -->
+  <dialog id="edit-dialog">
+    <form id="edit-form" method="dialog">
+      <h2 id="edit-title">습관 수정</h2>
+      <label class="field">이름과 색
+        <span class="field-row">
+          <input type="text" id="edit-name" maxlength="40" autocomplete="off" placeholder="예: 물 2L 마시기" />
+          <input type="color" id="edit-color" title="습관 색상" />
+        </span>
+      </label>
+      <div class="field">하는 요일
+        <div class="chips" id="edit-days"></div>
+      </div>
+      <label class="field">하루 목표 횟수
+        <input type="number" id="edit-target" min="1" max="99" />
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" id="edit-archive" title="목록에서 숨기고 기록은 남깁니다">보관</button>
+        <span class="spacer"></span>
+        <button type="button" class="ghost" id="edit-cancel">취소</button>
+        <button type="submit" id="edit-submit">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 메모 -->
+  <dialog id="memo-dialog">
+    <form id="memo-form" method="dialog">
+      <h2 id="memo-title">메모</h2>
+      <label class="field">
+        <span id="memo-date"></span>
+        <textarea id="memo-text" rows="3" maxlength="100" placeholder="예: 저녁에 30분 걸음"></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="ghost danger" id="memo-delete">지우기</button>
+        <span class="spacer"></span>
+        <button type="button" class="ghost" id="memo-cancel">취소</button>
+        <button type="submit">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 되돌리기 -->
+  <div class="toast" id="toast" role="status" hidden>
+    <span id="toast-text"></span>
+    <button id="toast-undo">되돌리기</button>
   </div>
 
   <script>
+    // sw.js의 CACHE와 같은 값으로 맞춘다 (새 버전 안내에 쓰임)
+    const APP_VERSION = 'habit-tracker-v3';
     const STORAGE_KEY = 'habit-tracker-v1';
-    const WEEKS = 20;
+    const YEAR_WEEKS = 53;
     const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+    const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 화면에는 월요일부터 보여 준다
+    const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
-    // 습관: { id, name, color, created: 'YYYY-MM-DD', done: { 'YYYY-MM-DD': true } }
+    // 습관: { id, name, color, created, days: [요일 0~6], target: 하루 목표 횟수,
+    //        archived: 보관한 날 | null, done: { 'YYYY-MM-DD': 횟수 }, notes: { 'YYYY-MM-DD': '메모' } }
     let state = load();
     let weekOffset = 0; // 0 = 이번 주, -1 = 지난주 ...
 
     // ---------- 저장 ----------
+    function newId() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
+    function isKey(v) {
+      return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    }
+
+    function clampInt(v, min, max, fallback) {
+      const n = Math.floor(Number(v));
+      return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+    }
+
+    // 예전 형식(done: { 날짜: true })과 백업 파일을 모두 지금 형식으로 맞춘다
+    function normalizeHabit(h, seenIds) {
+      let id = String(h.id || '').replace(/[^\w-]/g, '');
+      if (!id || seenIds.has(id)) id = newId();
+      seenIds.add(id);
+
+      const days = Array.isArray(h.days)
+        ? [...new Set(h.days.map(Number).filter(d => ALL_DAYS.includes(d)))].sort()
+        : [];
+
+      const done = {};
+      for (const [key, v] of Object.entries(h.done || {})) {
+        const count = v === true ? 1 : clampInt(v, 0, 99, 0);
+        if (isKey(key) && count > 0) done[key] = count;
+      }
+
+      const notes = {};
+      for (const [key, v] of Object.entries(h.notes || {})) {
+        if (isKey(key) && typeof v === 'string' && v.trim()) notes[key] = v.trim().slice(0, 100);
+      }
+
+      return {
+        id,
+        name: String(h.name || '이름 없음').trim().slice(0, 40) || '이름 없음',
+        color: /^#[0-9a-f]{6}$/i.test(h.color) ? h.color : '#2da44e',
+        created: isKey(h.created) ? h.created : toKey(today()),
+        days: days.length ? days : ALL_DAYS.slice(),
+        target: clampInt(h.target, 1, 99, 1),
+        archived: isKey(h.archived) ? h.archived : null,
+        done,
+        notes,
+      };
+    }
+
+    function normalizeState(data) {
+      const seenIds = new Set();
+      return {
+        version: 2,
+        habits: (Array.isArray(data && data.habits) ? data.habits : [])
+          .filter(h => h && typeof h === 'object')
+          .map(h => normalizeHabit(h, seenIds)),
+        reminder: data && /^\d{2}:\d{2}$/.test(data.reminder) ? data.reminder : '',
+        reminderDismissed: data && isKey(data.reminderDismissed) ? data.reminderDismissed : '',
+        lastBackup: data && isKey(data.lastBackup) ? data.lastBackup : '',
+      };
+    }
+
     function load() {
       try {
         const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if (data && Array.isArray(data.habits)) return data;
+        if (data && Array.isArray(data.habits)) return normalizeState(data);
       } catch (e) {}
-      return { habits: [] };
+      return normalizeState({});
     }
 
     function save() {
@@ -492,84 +1082,205 @@
       return addDays(date, -((date.getDay() + 6) % 7));
     }
 
-    function dayDiff(fromKeyStr, toKeyStr) {
-      return Math.round((fromKey(toKeyStr) - fromKey(fromKeyStr)) / 86400000);
+    function keysBetween(fromKeyStr, toKeyStr) {
+      const keys = [];
+      for (let d = fromKey(fromKeyStr); toKey(d) <= toKeyStr; d = addDays(d, 1)) keys.push(toKey(d));
+      return keys;
+    }
+
+    function shortDate(key) {
+      const d = fromKey(key);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+
+    // ---------- 습관 상태 ----------
+    function activeHabits() {
+      return state.habits.filter(h => !h.archived);
+    }
+
+    // 습관을 만든 날 이전에 기록을 넣었으면 그날부터 센다
+    function startKey(h) {
+      const first = Object.keys(h.done).sort()[0];
+      return first && first < h.created ? first : h.created;
+    }
+
+    function isActiveOn(h, key) {
+      return key >= startKey(h) && (!h.archived || key < h.archived);
+    }
+
+    function isScheduled(h, key) {
+      return h.days.includes(fromKey(key).getDay());
+    }
+
+    // 그날 해야 했던 습관인지 (기록 기간 안 + 하는 요일)
+    function isExpected(h, key) {
+      return isActiveOn(h, key) && isScheduled(h, key);
+    }
+
+    function countOn(h, key) {
+      return h.done[key] || 0;
+    }
+
+    function isDone(h, key) {
+      return countOn(h, key) >= h.target;
+    }
+
+    function doneDays(h) {
+      return Object.keys(h.done).filter(key => isDone(h, key)).length;
+    }
+
+    function scheduleLabel(days) {
+      if (days.length === 7) return '매일';
+      if (days.join() === '1,2,3,4,5') return '평일';
+      if (days.join() === '0,6') return '주말';
+      return WEEK_ORDER.filter(d => days.includes(d)).map(d => DAY_NAMES[d]).join('·');
     }
 
     // ---------- 계산 ----------
-    // 오늘 아직 체크 안 했으면 어제까지의 연속 기록을 유지한다
-    function currentStreak(habit) {
-      let d = today();
-      if (!habit.done[toKey(d)]) d = addDays(d, -1);
+    // 쉬는 요일은 건너뛰고, 하는 요일을 놓치면 끊긴다.
+    // 오늘 아직 안 했으면 어제까지의 기록을 유지한다
+    function currentStreak(h) {
+      const todayKey = toKey(today());
+      const start = startKey(h);
       let count = 0;
-      while (habit.done[toKey(d)]) {
-        count++;
-        d = addDays(d, -1);
+      for (let d = today(); toKey(d) >= start; d = addDays(d, -1)) {
+        const key = toKey(d);
+        if (isDone(h, key)) count++;
+        else if (isScheduled(h, key) && key !== todayKey) break;
       }
       return count;
     }
 
-    function longestStreak(habit) {
-      const keys = Object.keys(habit.done).sort();
-      let best = 0, run = 0, prev = null;
-      for (const key of keys) {
-        run = prev && dayDiff(prev, key) === 1 ? run + 1 : 1;
-        best = Math.max(best, run);
-        prev = key;
+    function longestStreak(h) {
+      const todayKey = toKey(today());
+      let best = 0, run = 0;
+      for (const key of keysBetween(startKey(h), todayKey)) {
+        if (h.archived && key >= h.archived) break;
+        if (isDone(h, key)) best = Math.max(best, ++run);
+        else if (isScheduled(h, key) && key !== todayKey) run = 0;
       }
       return best;
     }
 
-    // 이번 달 1일(또는 습관을 처음 기록한 날)부터 오늘까지 완료 비율
-    function monthRate() {
-      const t = today();
-      const todayKey = toKey(t);
-      const monthStart = toKey(new Date(t.getFullYear(), t.getMonth(), 1));
-      let total = 0, done = 0;
-      for (const h of state.habits) {
-        const firstDone = Object.keys(h.done).sort()[0];
-        let start = firstDone && firstDone < h.created ? firstDone : h.created;
-        if (start < monthStart) start = monthStart;
-        if (start > todayKey) continue;
-        for (let d = fromKey(start); toKey(d) <= todayKey; d = addDays(d, 1)) {
-          total++;
-          if (h.done[toKey(d)]) done++;
-        }
-      }
-      return total ? Math.round((done / total) * 100) + '%' : '-';
+    // 그날 목표 중 채운 비율 (하루 3회 중 1회면 1/3)
+    function progressOn(h, key) {
+      return Math.min(1, countOn(h, key) / h.target);
     }
 
-    function doneCountOn(key) {
-      return state.habits.filter(h => h.done[key]).length;
+    // 주어진 날짜들에서 해야 했던 횟수(total), 진행한 만큼의 합(done), 목표를 다 채운 횟수(full)
+    function tally(habits, keys) {
+      let done = 0, full = 0, total = 0;
+      for (const h of habits) {
+        for (const key of keys) {
+          if (!isExpected(h, key)) continue;
+          total++;
+          done += progressOn(h, key);
+          if (isDone(h, key)) full++;
+        }
+      }
+      return { done, full, total };
+    }
+
+    // 1.333… → 1.3, 2 → 2
+    function fmtNum(n) {
+      return String(Math.round(n * 10) / 10);
+    }
+
+    function percent({ done, total }) {
+      return total ? Math.round((done / total) * 100) : null;
+    }
+
+    // ---------- 되돌리기 ----------
+    let undoSnapshot = null;
+    let toastTimer = null;
+
+    // 바꾸기 전 상태를 기억해 두고, 몇 초 동안 되돌리기 버튼을 보여 준다
+    function withUndo(message, change) {
+      const snapshot = JSON.stringify(state);
+      change();
+      save();
+      render();
+      undoSnapshot = snapshot;
+      document.getElementById('toast-text').textContent = message;
+      document.getElementById('toast').hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(hideToast, 6000);
+    }
+
+    function hideToast() {
+      document.getElementById('toast').hidden = true;
+      undoSnapshot = null;
+    }
+
+    function undo() {
+      if (!undoSnapshot) return;
+      state = normalizeState(JSON.parse(undoSnapshot));
+      save();
+      render();
+      hideToast();
     }
 
     // ---------- 조작 ----------
-    function addHabit(name, color) {
-      state.habits.push({
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        name,
-        color,
-        created: toKey(today()),
-        done: {},
-      });
+    function findHabit(id) {
+      return state.habits.find(h => h.id === id);
+    }
+
+    function nameTaken(name, exceptId) {
+      return state.habits.some(h => h.name === name && h.id !== exceptId);
+    }
+
+    // 체크박스·잔디: 목표를 채웠으면 0으로, 아니면 목표 횟수로
+    function toggle(id, key) {
+      if (key > toKey(today())) return; // 미래 날짜는 체크 불가
+      const h = findHabit(id);
+      if (!h) return;
+      if (isDone(h, key)) delete h.done[key];
+      else h.done[key] = h.target;
       save();
       render();
+    }
+
+    function changeCount(id, key, delta) {
+      const h = findHabit(id);
+      if (!h || key > toKey(today())) return;
+      const count = Math.min(h.target, Math.max(0, countOn(h, key) + delta));
+      if (count) h.done[key] = count;
+      else delete h.done[key];
+      save();
+      render();
+    }
+
+    // 보관하지 않은 습관끼리 순서를 바꾼다
+    function moveHabit(id, dir) {
+      const list = activeHabits();
+      const i = list.findIndex(h => h.id === id);
+      const other = list[i + dir];
+      if (i < 0 || !other) return;
+      const a = state.habits.indexOf(list[i]);
+      const b = state.habits.indexOf(other);
+      [state.habits[a], state.habits[b]] = [state.habits[b], state.habits[a]];
+      save();
+      render();
+    }
+
+    function archiveHabit(id) {
+      const h = findHabit(id);
+      if (!h) return;
+      withUndo(`'${h.name}' 습관을 보관했습니다.`, () => { h.archived = toKey(today()); });
+    }
+
+    function restoreHabit(id) {
+      const h = findHabit(id);
+      if (!h) return;
+      withUndo(`'${h.name}' 습관을 다시 꺼냈습니다.`, () => { h.archived = null; });
     }
 
     function deleteHabit(id) {
-      state.habits = state.habits.filter(h => h.id !== id);
-      save();
-      render();
-    }
-
-    function toggle(id, key) {
-      if (key > toKey(today())) return; // 미래 날짜는 체크 불가
-      const habit = state.habits.find(h => h.id === id);
-      if (!habit) return;
-      if (habit.done[key]) delete habit.done[key];
-      else habit.done[key] = true;
-      save();
-      render();
+      const h = findHabit(id);
+      if (!h || !confirm(`'${h.name}' 습관과 기록을 완전히 삭제할까요?`)) return;
+      withUndo(`'${h.name}' 습관을 삭제했습니다.`, () => {
+        state.habits = state.habits.filter(x => x.id !== id);
+      });
     }
 
     // ---------- 렌더링 ----------
@@ -579,168 +1290,486 @@
       }[c]));
     }
 
+    function renderDayChips(containerId, days) {
+      document.getElementById(containerId).innerHTML = WEEK_ORDER.map(d => `
+        <label class="chip"><input type="checkbox" value="${d}" ${days.includes(d) ? 'checked' : ''} /><span>${DAY_NAMES[d]}</span></label>
+      `).join('');
+    }
+
+    function readDayChips(containerId) {
+      return [...document.querySelectorAll(`#${containerId} input:checked`)].map(el => Number(el.value)).sort();
+    }
+
+    // 잔디 칸 모양 체크박스. 목표를 일부만 채운 날은 그만큼 아래에서 차오르고 '-' 상태가 된다
+    function tickHtml(h, key, { small = false, id = '' } = {}) {
+      const count = countOn(h, key);
+      const done = isDone(h, key);
+      const off = !count && !isScheduled(h, key);
+      const cls = ['tick', small ? 'sm' : '', off ? 'off' : ''].filter(Boolean).join(' ');
+      return `<input type="checkbox" class="${cls}" ${id ? `id="${id}"` : ''} data-habit="${h.id}" data-date="${key}"
+        style="--c:${esc(h.color)};--p:${Math.min(1, count / h.target)}" title="${esc(cellTitle(h, key))}"
+        aria-label="${esc(h.name)} ${key}" ${done ? 'checked' : ''} ${count && !done ? 'data-partial' : ''}
+        ${key > toKey(today()) ? 'disabled' : ''} />`;
+    }
+
+    function markPartial(root) {
+      root.querySelectorAll('[data-partial]').forEach(el => { el.indeterminate = true; });
+    }
+
+    function cellTitle(h, key) {
+      const count = countOn(h, key);
+      let status = h.target > 1 ? `${count}/${h.target}회` : count ? '완료' : '미완료';
+      if (!count && !isScheduled(h, key)) status = '쉬는 날';
+      const note = h.notes[key] ? ` · 📝 ${h.notes[key]}` : '';
+      return `${key} · ${status}${note}`;
+    }
+
+    // 다시 그려도 잔디 가로 스크롤 위치를 유지한다 (처음에는 최신인 오른쪽 끝)
+    function keepScroll(draw) {
+      const fromRight = {};
+      document.querySelectorAll('[data-scroll]').forEach(el => {
+        fromRight[el.dataset.scroll] = el.scrollWidth - el.clientWidth - el.scrollLeft;
+      });
+      draw();
+      document.querySelectorAll('[data-scroll]').forEach(el => {
+        el.scrollLeft = el.scrollWidth - el.clientWidth - (fromRight[el.dataset.scroll] || 0);
+      });
+    }
+
     function render() {
-      const t = today();
-      const todayKey = toKey(t);
-      const habits = state.habits;
+      keepScroll(() => {
+        const t = today();
+        const todayKey = toKey(t);
+        renderHero(t, todayKey);
+        renderTodo(todayKey);
+        renderWeek(t, todayKey);
+        renderHabitList(t, todayKey);
+        renderArchived();
+        renderCharts(t, todayKey);
+        renderSettings();
+        checkReminder();
+      });
+    }
 
+    function renderHero(t, todayKey) {
+      const habits = activeHabits();
       document.getElementById('today-label').textContent =
-        `${t.getFullYear()}년 ${t.getMonth() + 1}월 ${t.getDate()}일 (${DAY_NAMES[t.getDay()]})`;
+        `${t.getMonth() + 1}월 ${t.getDate()}일 ${DAY_NAMES[t.getDay()]}요일`;
 
-      // 통계
-      document.getElementById('stat-today').textContent = `${doneCountOn(todayKey)} / ${habits.length}`;
-      document.getElementById('stat-streak').textContent =
-        `${Math.max(0, ...habits.map(longestStreak))}일`;
-      document.getElementById('stat-month').textContent = monthRate();
+      const todayTally = tally(habits, [todayKey]);
+      const todayPct = percent(todayTally);
+      document.getElementById('stat-today').textContent = todayPct === null ? '-' : todayPct + '%';
+      document.getElementById('stat-today-label').textContent = `오늘 ${todayTally.full}/${todayTally.total} 완료`;
+      document.getElementById('stat-streak').textContent = `${Math.max(0, ...habits.map(longestStreak))}일`;
+      const monthStart = toKey(new Date(t.getFullYear(), t.getMonth(), 1));
+      const monthPct = percent(tally(state.habits, keysBetween(monthStart, todayKey)));
+      document.getElementById('stat-month').textContent = monthPct === null ? '-' : monthPct + '%';
 
-      renderTodo(todayKey);
-      renderWeek(t, todayKey);
-      renderOverallGrass(t, todayKey);
-      renderHabitList(t, todayKey);
+      // 그날 있었고 하는 요일이었던 습관만 세서, 나중에 습관을 추가해도 예전 칸 색이 바뀌지 않는다
+      const days = grassDays(t, YEAR_WEEKS);
+      let greenDays = 0;
+      document.getElementById('overall-grass').innerHTML = days.map(key => {
+        if (key > todayKey) return '<div class="cell future"></div>';
+        const { done, total } = tally(state.habits, [key]);
+        if (done) greenDays++;
+        const ratio = total ? done / total : 0;
+        const lv = ratio === 0 ? 0 : ratio <= 0.25 ? 1 : ratio <= 0.5 ? 2 : ratio <= 0.75 ? 3 : 4;
+        const title = total ? `${key} · ${fmtNum(done)}/${total} 진행` : `${key} · 예정된 습관 없음`;
+        const cls = ['cell', lv ? 'lv' + lv : '', key === todayKey ? 'is-today' : ''].filter(Boolean).join(' ');
+        return `<div class="${cls}" title="${title}"></div>`;
+      }).join('');
+
+      document.getElementById('overall-months').innerHTML = monthLabels(days);
+      document.getElementById('hero-summary').innerHTML = state.habits.length
+        ? `최근 1년 동안 <strong>${greenDays}일</strong> 잔디를 심었어요`
+        : '첫 습관을 추가하고 잔디를 심어 보세요';
+    }
+
+    // 주의 첫날(월요일)이 새 달이면 그 열 위에 달 이름을 단다
+    function monthLabels(days) {
+      const labels = [];
+      for (let col = 0; col * 7 < days.length; col++) {
+        const month = fromKey(days[col * 7]).getMonth();
+        const prev = col ? fromKey(days[(col - 1) * 7]).getMonth() : null;
+        if (col === 0 || month !== prev) labels.push({ col, month });
+      }
+      // 첫 열 이름이 바로 다음 달 이름과 겹치면 뺀다
+      if (labels.length > 1 && labels[1].col < 3) labels.shift();
+      return labels.map(l => `<span style="grid-column:${l.col + 1} / span 4;grid-row:1">${l.month + 1}월</span>`).join('');
     }
 
     function renderTodo(todayKey) {
       const list = document.getElementById('todo-list');
-      if (!state.habits.length) {
-        list.innerHTML = '<li class="empty">위에서 습관을 추가해 보세요.</li>';
+      const off = document.getElementById('todo-off');
+      const habits = activeHabits();
+      const planned = habits.filter(h => isScheduled(h, todayKey));
+      const resting = habits.filter(h => !isScheduled(h, todayKey));
+
+      off.hidden = !resting.length;
+      off.textContent = `오늘 쉬는 습관: ${resting.map(h => h.name).join(', ')}`;
+
+      if (!habits.length) {
+        list.innerHTML = '<li class="empty">아래 \'내 습관\'에서 첫 습관을 추가해 보세요.</li>';
         return;
       }
-      list.innerHTML = state.habits.map(h => {
-        const done = !!h.done[todayKey];
+      if (!planned.length) {
+        list.innerHTML = '<li class="empty">오늘은 예정된 습관이 없어요. 푹 쉬세요.</li>';
+        return;
+      }
+
+      list.innerHTML = planned.map(h => {
+        const done = isDone(h, todayKey);
+        const count = countOn(h, todayKey);
+        const note = h.notes[todayKey];
+        const counter = h.target > 1 ? `
+          <div class="counter">
+            <button class="ghost icon" data-count="${h.id}" data-delta="-1" ${count ? '' : 'disabled'} title="1회 빼기">−</button>
+            <span class="count">${count}/${h.target}</span>
+            <button class="ghost icon" data-count="${h.id}" data-delta="1" ${done ? 'disabled' : ''} title="1회 더하기">+</button>
+          </div>` : '';
         return `
           <li class="${done ? 'done' : ''}">
-            <input type="checkbox" id="todo-${h.id}" data-habit="${h.id}" data-date="${todayKey}"
-              style="accent-color:${esc(h.color)}" ${done ? 'checked' : ''} />
-            <label for="todo-${h.id}">${esc(h.name)}</label>
+            ${tickHtml(h, todayKey, { id: `todo-${h.id}` })}
+            <div class="todo-main">
+              <label for="todo-${h.id}">${esc(h.name)}</label>
+              ${note ? `<div class="todo-note">📝 ${esc(note)}</div>` : ''}
+            </div>
+            ${counter}
+            <button class="ghost icon" data-memo="${h.id}" title="오늘 메모">📝</button>
           </li>`;
       }).join('');
+      markPartial(list);
     }
 
     function renderWeek(t, todayKey) {
       const monday = addDays(mondayOf(t), weekOffset * 7);
-      const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-      const fmt = d => `${d.getMonth() + 1}월 ${d.getDate()}일`;
+      const days = Array.from({ length: 7 }, (_, i) => toKey(addDays(monday, i)));
 
-      document.getElementById('week-range').textContent = `${fmt(days[0])} ~ ${fmt(days[6])}`;
+      document.getElementById('week-range').textContent = `${shortDate(days[0])} ~ ${shortDate(days[6])}`;
       document.getElementById('week-next').disabled = weekOffset >= 0;
 
       const table = document.getElementById('week-table');
-      if (!state.habits.length) {
+      const habits = activeHabits();
+      if (!habits.length) {
         table.innerHTML = '<tr><td class="empty">습관이 없습니다.</td></tr>';
         return;
       }
 
-      const head = days.map(d => {
-        const cls = toKey(d) === todayKey ? ' class="is-today"' : '';
-        return `<th${cls}>${DAY_NAMES[d.getDay()]}<small>${d.getMonth() + 1}/${d.getDate()}</small></th>`;
+      const head = days.map(key => {
+        const cls = key === todayKey ? ' class="is-today"' : '';
+        return `<th${cls}>${DAY_NAMES[fromKey(key).getDay()]}<small>${shortDate(key)}</small></th>`;
       }).join('');
 
-      const rows = state.habits.map(h => {
-        let count = 0;
-        const cells = days.map(d => {
-          const key = toKey(d);
-          const done = !!h.done[key];
-          if (done) count++;
-          const cls = key === todayKey ? ' class="is-today"' : '';
-          return `<td${cls}><input type="checkbox" data-habit="${h.id}" data-date="${key}"
-            style="accent-color:${esc(h.color)}" ${done ? 'checked' : ''} ${key > todayKey ? 'disabled' : ''} /></td>`;
-        }).join('');
-        return `<tr><td>${esc(h.name)}</td>${cells}<td class="rate">${count}/7</td></tr>`;
+      const rows = habits.map(h => {
+        const doneCount = days.reduce((sum, key) => sum + progressOn(h, key), 0);
+        const planned = days.filter(key => isScheduled(h, key) && key >= startKey(h)).length;
+        const cells = days.map(key => `<td>${tickHtml(h, key, { small: true })}</td>`).join('');
+        return `<tr><td title="${esc(h.name)}">${esc(h.name)}</td>${cells}<td class="rate">${fmtNum(doneCount)}/${planned}</td></tr>`;
       }).join('');
 
       table.innerHTML = `<thead><tr><th>습관</th>${head}<th>달성</th></tr></thead><tbody>${rows}</tbody>`;
+      markPartial(table);
     }
 
-    // 20주 × 7일 날짜 목록 (맨 오른쪽 열이 이번 주)
-    function grassDays(t) {
-      const start = addDays(mondayOf(t), -(WEEKS - 1) * 7);
-      return Array.from({ length: WEEKS * 7 }, (_, i) => toKey(addDays(start, i)));
+    // weeks주 × 7일 날짜 목록 (맨 오른쪽 열이 이번 주)
+    function grassDays(t, weeks) {
+      const start = addDays(mondayOf(t), -(weeks - 1) * 7);
+      return Array.from({ length: weeks * 7 }, (_, i) => toKey(addDays(start, i)));
     }
 
-    function renderOverallGrass(t, todayKey) {
-      const total = state.habits.length;
-      document.getElementById('overall-grass').innerHTML = grassDays(t).map(key => {
-        if (key > todayKey) return '<div class="cell future"></div>';
-        const done = doneCountOn(key);
-        const ratio = total ? done / total : 0;
-        const lv = ratio === 0 ? 0 : ratio <= 0.25 ? 1 : ratio <= 0.5 ? 2 : ratio <= 0.75 ? 3 : 4;
-        return `<div class="cell${lv ? ' lv' + lv : ''}" title="${key} · ${done}/${total} 완료"></div>`;
+    function barRow(label, result, color, tooltip) {
+      const pct = percent(result);
+      const fill = color ? ` background:${esc(color)};` : '';
+      return `
+        <div class="bar-row" title="${esc(tooltip)} · ${fmtNum(result.done)}/${result.total}${pct === null ? '' : ` (${pct}%)`}">
+          <span class="bar-label">${esc(label)}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct || 0}%;${fill}"></div></div>
+          <span class="bar-value">${pct === null ? '-' : pct + '%'}</span>
+        </div>`;
+    }
+
+    function renderCharts(t, todayKey) {
+      const habits = activeHabits();
+
+      const last30 = keysBetween(toKey(addDays(t, -29)), todayKey);
+      document.getElementById('chart-habits').innerHTML = habits.length
+        ? habits.map(h => barRow(h.name, tally([h], last30), h.color, h.name)).join('')
+        : '<p class="empty">습관이 없습니다.</p>';
+
+      const last84 = keysBetween(toKey(addDays(t, -83)), todayKey);
+      document.getElementById('chart-weekday').innerHTML = WEEK_ORDER.map(d => {
+        const keys = last84.filter(key => fromKey(key).getDay() === d);
+        return barRow(DAY_NAMES[d], tally(state.habits, keys), null, `${DAY_NAMES[d]}요일`);
+      }).join('');
+
+      const months = Array.from({ length: 6 }, (_, i) => new Date(t.getFullYear(), t.getMonth() - 5 + i, 1));
+      document.getElementById('chart-month').innerHTML = months.map(m => {
+        const end = toKey(new Date(m.getFullYear(), m.getMonth() + 1, 0));
+        const keys = keysBetween(toKey(m), end < todayKey ? end : todayKey);
+        return barRow(`${m.getMonth() + 1}월`, tally(state.habits, keys), null, `${m.getFullYear()}년 ${m.getMonth() + 1}월`);
       }).join('');
     }
 
     function renderHabitList(t, todayKey) {
       const list = document.getElementById('habit-list');
-      if (!state.habits.length) {
-        list.innerHTML = '<p class="empty">아직 등록된 습관이 없습니다.</p>';
+      const habits = activeHabits();
+      if (!habits.length) {
+        list.innerHTML = '<p class="empty">아직 등록된 습관이 없습니다. ＋ 새 습관으로 시작해 보세요.</p>';
         return;
       }
-      const days = grassDays(t);
-      list.innerHTML = state.habits.map(h => {
-        const doneToday = !!h.done[todayKey];
+      const days = grassDays(t, YEAR_WEEKS);
+      list.innerHTML = habits.map((h, i) => {
         const cells = days.map(key => {
           if (key > todayKey) return '<div class="cell future"></div>';
-          const done = !!h.done[key];
-          const style = done ? ` style="background:${esc(h.color)}"` : '';
-          return `<div class="cell clickable" data-habit="${h.id}" data-date="${key}"${style}
-            title="${key} · ${done ? '완료' : '미완료'} (클릭해서 변경)"></div>`;
+          const p = progressOn(h, key);
+          const fill = p >= 1 ? esc(h.color) : `color-mix(in srgb, ${esc(h.color)} ${Math.round(25 + p * 50)}%, var(--lv0))`;
+          const style = p ? ` style="background:${fill}"` : '';
+          const cls = ['cell clickable', key === todayKey ? 'is-today' : ''].filter(Boolean).join(' ');
+          return `<div class="${cls}" data-habit="${h.id}" data-date="${key}"${style}
+            title="${esc(cellTitle(h, key))} (클릭해서 변경)"></div>`;
         }).join('');
+        const meta = [scheduleLabel(h.days), h.target > 1 ? `하루 ${h.target}회` : '', `총 ${doneDays(h)}일`]
+          .filter(Boolean).join(' · ');
         return `
           <div class="habit">
             <div class="habit-head">
               <div class="habit-name">
                 <span class="dot" style="background:${esc(h.color)}"></span>
                 ${esc(h.name)}
-                <span class="streak">🔥 ${currentStreak(h)}일 연속</span>
+                <span class="streak">🔥 ${currentStreak(h)}일</span>
+                <span class="habit-meta">${esc(meta)}</span>
               </div>
               <div class="habit-actions">
-                <button class="ghost${doneToday ? ' checked' : ''}" data-today="${h.id}">
-                  ${doneToday ? '오늘 완료 ✓' : '오늘 체크'}
-                </button>
-                <button class="ghost" data-delete="${h.id}">삭제</button>
+                <button class="ghost icon" data-move="${h.id}" data-dir="-1" ${i === 0 ? 'disabled' : ''} title="위로" aria-label="위로">▲</button>
+                <button class="ghost icon" data-move="${h.id}" data-dir="1" ${i === habits.length - 1 ? 'disabled' : ''} title="아래로" aria-label="아래로">▼</button>
+                <button class="ghost" data-edit="${h.id}">수정</button>
               </div>
             </div>
-            <div class="grass-wrap"><div class="grass">${cells}</div></div>
+            <div class="grass-scroll" data-scroll="habit-${h.id}"><div class="grass">${cells}</div></div>
           </div>`;
       }).join('');
     }
 
-    // ---------- 이벤트 ----------
-    document.getElementById('add-form').addEventListener('submit', e => {
-      e.preventDefault();
-      const input = document.getElementById('habit-name');
-      const name = input.value.trim();
-      if (!name) {
-        input.focus();
+    function renderArchived() {
+      const box = document.getElementById('archived-list');
+      const archived = state.habits.filter(h => h.archived);
+      if (!archived.length) {
+        box.innerHTML = '';
         return;
       }
-      if (state.habits.some(h => h.name === name)) {
-        alert('이미 같은 이름의 습관이 있습니다.');
+      const wasOpen = box.querySelector('details')?.open;
+      box.innerHTML = `
+        <details class="archived"${wasOpen ? ' open' : ''}>
+          <summary>보관한 습관 ${archived.length}개</summary>
+          ${archived.map(h => `
+            <div class="archived-row">
+              <div class="habit-name">
+                <span class="dot" style="background:${esc(h.color)}"></span>
+                ${esc(h.name)}
+                <span class="streak">${shortDate(h.archived)} 보관 · 총 ${doneDays(h)}일</span>
+              </div>
+              <div class="habit-actions">
+                <button class="ghost" data-restore="${h.id}">다시 꺼내기</button>
+                <button class="ghost danger" data-delete="${h.id}">완전히 삭제</button>
+              </div>
+            </div>`).join('')}
+        </details>`;
+    }
+
+    function renderSettings() {
+      const timeInput = document.getElementById('reminder-time');
+      if (document.activeElement !== timeInput) timeInput.value = state.reminder;
+      document.getElementById('reminder-clear').disabled = !state.reminder;
+      document.getElementById('backup-info').textContent = state.lastBackup
+        ? `마지막으로 내보낸 날: ${state.lastBackup}`
+        : '아직 내보낸 적이 없습니다. 기기를 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내 두세요.';
+    }
+
+    // ---------- 알림 (앱이 열려 있을 때만) ----------
+    function checkReminder() {
+      const banner = document.getElementById('reminder-banner');
+      const todayKey = toKey(today());
+      const now = new Date();
+      const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const left = activeHabits().filter(h => isScheduled(h, todayKey) && !isDone(h, todayKey));
+      const show = state.reminder && hhmm >= state.reminder && state.reminderDismissed !== todayKey && left.length;
+      banner.hidden = !show;
+      if (show) {
+        document.getElementById('reminder-text').textContent =
+          `⏰ 아직 안 한 습관 ${left.length}개: ${left.map(h => h.name).join(', ')}`;
+      }
+    }
+
+    // ---------- 대화상자 ----------
+    let editingId = null; // null이면 새 습관 추가
+    let memoTarget = null;
+
+    function openEdit(id) {
+      const h = id ? findHabit(id) : null;
+      editingId = h ? h.id : null;
+      document.getElementById('edit-title').textContent = h ? '습관 수정' : '새 습관';
+      document.getElementById('edit-submit').textContent = h ? '저장' : '추가';
+      document.getElementById('edit-archive').hidden = !h;
+      document.getElementById('edit-name').value = h ? h.name : '';
+      document.getElementById('edit-color').value = h ? h.color : '#2da44e';
+      document.getElementById('edit-target').value = h ? h.target : 1;
+      renderDayChips('edit-days', h ? h.days : ALL_DAYS);
+      document.getElementById('edit-dialog').showModal();
+      if (!h) document.getElementById('edit-name').focus();
+    }
+
+    function openMemo(id, key) {
+      const h = findHabit(id);
+      if (!h) return;
+      memoTarget = { id, key };
+      document.getElementById('memo-title').textContent = `${h.name} 메모`;
+      document.getElementById('memo-date').textContent = key;
+      document.getElementById('memo-text').value = h.notes[key] || '';
+      document.getElementById('memo-delete').disabled = !h.notes[key];
+      document.getElementById('memo-dialog').showModal();
+    }
+
+    function saveMemo(text) {
+      const h = memoTarget && findHabit(memoTarget.id);
+      if (!h) return;
+      const note = text.trim().slice(0, 100);
+      if (note) h.notes[memoTarget.key] = note;
+      else delete h.notes[memoTarget.key];
+      save();
+      render();
+    }
+
+    document.getElementById('edit-form').addEventListener('submit', e => {
+      const h = editingId ? findHabit(editingId) : null;
+      const name = document.getElementById('edit-name').value.trim();
+      const color = document.getElementById('edit-color').value;
+      const days = readDayChips('edit-days');
+      const error = !name ? '이름을 입력해 주세요.'
+        : !days.length ? '요일을 하나 이상 골라 주세요.'
+        : nameTaken(name, editingId) ? '이미 같은 이름의 습관이 있습니다. (보관한 습관 포함)'
+        : '';
+      if (error) {
+        e.preventDefault();
+        alert(error);
         return;
       }
-      addHabit(name, document.getElementById('habit-color').value);
-      input.value = '';
-      input.focus();
+      const target = clampInt(document.getElementById('edit-target').value, 1, 99, h ? h.target : 1);
+
+      if (!h) {
+        state.habits.push(normalizeHabit({ name, color, days, target, created: toKey(today()) },
+          new Set(state.habits.map(x => x.id))));
+        save();
+        render();
+        return;
+      }
+
+      withUndo(`'${name}' 습관을 수정했습니다.`, () => {
+        const todayKey = toKey(today());
+        // 목표를 바꿔도 어제까지 완료한 날은 완료로 남기고, 새 목표를 넘는 횟수는 줄인다
+        for (const key of Object.keys(h.done)) {
+          if (key < todayKey && h.done[key] >= h.target) h.done[key] = target;
+          else h.done[key] = Math.min(h.done[key], target);
+        }
+        h.name = name;
+        h.color = color;
+        h.days = days;
+        h.target = target;
+      });
     });
+
+    document.getElementById('edit-cancel').addEventListener('click', () => document.getElementById('edit-dialog').close());
+    document.getElementById('edit-archive').addEventListener('click', () => {
+      document.getElementById('edit-dialog').close();
+      archiveHabit(editingId);
+    });
+
+    document.getElementById('memo-form').addEventListener('submit', () => saveMemo(document.getElementById('memo-text').value));
+    document.getElementById('memo-cancel').addEventListener('click', () => document.getElementById('memo-dialog').close());
+    document.getElementById('memo-delete').addEventListener('click', () => {
+      saveMemo('');
+      document.getElementById('memo-dialog').close();
+    });
+
+    // ---------- 백업 ----------
+    document.getElementById('export-btn').addEventListener('click', () => {
+      state.lastBackup = toKey(today());
+      save();
+      const file = { app: 'habit-tracker', version: 2, exportedAt: new Date().toISOString(), data: state };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `habit-tracker-${state.lastBackup}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      render();
+    });
+
+    document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
+
+    document.getElementById('import-file').addEventListener('change', async e => {
+      const input = e.target;
+      const fileObj = input.files[0];
+      input.value = ''; // 같은 파일을 다시 골라도 change가 일어나게
+      if (!fileObj) return;
+      let data;
+      try {
+        const parsed = JSON.parse(await fileObj.text());
+        data = parsed && parsed.data ? parsed.data : parsed;
+        if (!data || !Array.isArray(data.habits)) throw new Error('habits 없음');
+      } catch (err) {
+        alert('습관 트래커 백업 파일이 아닙니다.');
+        return;
+      }
+      if (!confirm(`백업 파일의 습관 ${data.habits.length}개로 지금 기록을 바꿀까요?\n지금 이 기기에 있는 기록은 사라집니다.`)) return;
+      withUndo('백업 파일을 불러왔습니다.', () => { state = normalizeState(data); });
+    });
+
+    // ---------- 설정 ----------
+    document.getElementById('reminder-time').addEventListener('change', e => {
+      state.reminder = e.target.value;
+      state.reminderDismissed = '';
+      save();
+      render();
+    });
+
+    document.getElementById('reminder-clear').addEventListener('click', () => {
+      state.reminder = '';
+      save();
+      render();
+    });
+
+    document.getElementById('reminder-close').addEventListener('click', () => {
+      state.reminderDismissed = toKey(today());
+      save();
+      checkReminder();
+    });
+
+    // ---------- 이벤트 ----------
+    document.getElementById('add-btn').addEventListener('click', () => openEdit(null));
 
     // 오늘 할 일 / 주간 체크표 체크박스
     document.addEventListener('change', e => {
       const el = e.target;
-      if (el.matches('input[type="checkbox"][data-habit]')) toggle(el.dataset.habit, el.dataset.date);
+      if (el.matches('input.tick[data-habit]')) toggle(el.dataset.habit, el.dataset.date);
     });
 
     document.addEventListener('click', e => {
-      const cell = e.target.closest('.cell.clickable');
-      if (cell) return toggle(cell.dataset.habit, cell.dataset.date);
+      const t = e.target;
+      const todayKey = toKey(today());
+      let el;
 
-      const todayBtn = e.target.closest('[data-today]');
-      if (todayBtn) return toggle(todayBtn.dataset.today, toKey(today()));
-
-      const delBtn = e.target.closest('[data-delete]');
-      if (delBtn) {
-        const habit = state.habits.find(h => h.id === delBtn.dataset.delete);
-        if (habit && confirm(`'${habit.name}' 습관을 삭제할까요? 기록도 함께 사라집니다.`)) deleteHabit(habit.id);
-      }
+      if ((el = t.closest('.cell.clickable'))) return toggle(el.dataset.habit, el.dataset.date);
+      if ((el = t.closest('[data-count]'))) return changeCount(el.dataset.count, todayKey, Number(el.dataset.delta));
+      if ((el = t.closest('[data-memo]'))) return openMemo(el.dataset.memo, todayKey);
+      if ((el = t.closest('[data-move]'))) return moveHabit(el.dataset.move, Number(el.dataset.dir));
+      if ((el = t.closest('[data-edit]'))) return openEdit(el.dataset.edit);
+      if ((el = t.closest('[data-restore]'))) return restoreHabit(el.dataset.restore);
+      if ((el = t.closest('[data-delete]'))) return deleteHabit(el.dataset.delete);
     });
+
+    document.getElementById('toast-undo').addEventListener('click', undo);
 
     document.getElementById('week-prev').addEventListener('click', () => {
       weekOffset--;
@@ -762,7 +1791,8 @@
     }
 
     function updateThemeButton() {
-      themeBtn.textContent = isDark() ? '☀️ 라이트' : '🌙 다크';
+      themeBtn.textContent = isDark() ? '☀️' : '🌙';
+      themeBtn.title = isDark() ? '라이트 모드로' : '다크 모드로';
       // 설치된 앱의 상단 바 색도 지금 테마의 배경색에 맞춘다
       const barColor = isDark() ? '#0d1117' : '#f6f8fa';
       document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.content = barColor; });
@@ -780,13 +1810,36 @@
     darkQuery.addEventListener('change', updateThemeButton);
     updateThemeButton();
 
-    // 탭을 켜 둔 채 날짜가 바뀌어도 다시 볼 때 오늘 기준으로 갱신
+    // 앱을 켜 둔 채 날짜가 바뀌거나 다시 볼 때 오늘 기준으로 갱신
     window.addEventListener('focus', render);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+    setInterval(checkReminder, 60 * 1000);
 
     // ---------- PWA ----------
+    document.getElementById('app-version').textContent = APP_VERSION.replace('habit-tracker-', '');
+
+    function versionNumber(v) {
+      return Number(String(v).replace(/\D/g, '')) || 0;
+    }
+
     // HTTPS나 localhost에서만 등록된다 (file://, http://IP 주소에서는 건너뜀)
     if ('serviceWorker' in navigator && window.isSecureContext) {
-      navigator.serviceWorker.register('sw.js').catch((e) => console.warn('서비스 워커 등록 실패', e));
+      const sw = navigator.serviceWorker;
+      sw.register('sw.js').then(reg => {
+        // 앱을 다시 볼 때마다 새 버전이 올라왔는지 확인한다
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+      }).catch((e) => console.warn('서비스 워커 등록 실패', e));
+
+      // 동작 중인 서비스 워커가 이 페이지보다 새 버전이면 새로고침을 안내한다
+      sw.addEventListener('message', e => {
+        if (e.data && versionNumber(e.data.version) > versionNumber(APP_VERSION)) {
+          document.getElementById('update-banner').hidden = false;
+        }
+      });
+      const askVersion = () => sw.controller && sw.controller.postMessage('version');
+      sw.addEventListener('controllerchange', askVersion);
+      askVersion();
+      document.getElementById('update-reload').addEventListener('click', () => location.reload());
     }
 
     render();

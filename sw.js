@@ -1,6 +1,6 @@
 // 앱 파일을 캐시에 넣어 두고 오프라인에서도 열리게 한다.
 // 파일을 바꿔서 배포할 때는 CACHE 이름의 버전을 올린다.
-const CACHE = 'habit-tracker-v1';
+const CACHE = 'habit-tracker-v3';
 const APP_FILES = [
   './',
   './index.html',
@@ -48,4 +48,9 @@ self.addEventListener('fetch', (event) => {
           .then((res) => res || Response.error())
       )
   );
+});
+
+// 페이지가 지금 동작 중인 버전을 물어보면 알려 준다 (새 버전 안내용)
+self.addEventListener('message', (event) => {
+  if (event.data === 'version' && event.source) event.source.postMessage({ version: CACHE });
 });
