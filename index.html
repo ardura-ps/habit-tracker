@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>습관 트래커</title>
+  <script>
+    // 화면이 그려지기 전에 저장된 테마를 적용해서 깜빡임을 막는다
+    try {
+      const theme = localStorage.getItem('habit-tracker-theme');
+      if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+    } catch (e) {}
+  </script>
   <style>
     :root {
       --bg: #f6f8fa;
@@ -18,6 +25,42 @@
       --lv2: #40c463;
       --lv3: #30a14e;
       --lv4: #216e39;
+      color-scheme: light;
+    }
+
+    /* 다크 모드: 시스템 설정을 따르되, 직접 고른 테마(data-theme)가 우선 */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0d1117;
+        --card: #161b22;
+        --text: #e6edf3;
+        --muted: #8d96a0;
+        --border: #30363d;
+        --accent: #238636;
+        --today: #12261e;
+        --lv0: #21262d;
+        --lv1: #0e4429;
+        --lv2: #006d32;
+        --lv3: #26a641;
+        --lv4: #39d353;
+        color-scheme: dark;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #0d1117;
+      --card: #161b22;
+      --text: #e6edf3;
+      --muted: #8d96a0;
+      --border: #30363d;
+      --accent: #238636;
+      --today: #12261e;
+      --lv0: #21262d;
+      --lv1: #0e4429;
+      --lv2: #006d32;
+      --lv3: #26a641;
+      --lv4: #39d353;
+      color-scheme: dark;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -39,11 +82,19 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
       margin-bottom: 24px;
     }
 
     header h1 { font-size: 1.6rem; }
     header .today { color: var(--muted); font-size: 0.95rem; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
     .card {
       background: var(--card);
@@ -78,6 +129,8 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       font-size: 1rem;
+      background: var(--card);
+      color: var(--text);
     }
 
     .add-form input[type="color"] {
@@ -301,7 +354,10 @@
   <div class="container">
     <header>
       <h1>🌱 습관 트래커</h1>
-      <span class="today" id="today-label"></span>
+      <div class="header-right">
+        <span class="today" id="today-label"></span>
+        <button class="ghost" id="theme-toggle" title="테마 전환"></button>
+      </div>
     </header>
 
     <!-- 습관 추가 -->
@@ -687,6 +743,31 @@
       if (weekOffset < 0) weekOffset++;
       render();
     });
+
+    // ---------- 테마 ----------
+    const themeBtn = document.getElementById('theme-toggle');
+    const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function isDark() {
+      const theme = document.documentElement.dataset.theme;
+      return theme ? theme === 'dark' : darkQuery.matches;
+    }
+
+    function updateThemeButton() {
+      themeBtn.textContent = isDark() ? '☀️ 라이트' : '🌙 다크';
+    }
+
+    themeBtn.addEventListener('click', () => {
+      const next = isDark() ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      try {
+        localStorage.setItem('habit-tracker-theme', next);
+      } catch (e) {}
+      updateThemeButton();
+    });
+
+    darkQuery.addEventListener('change', updateThemeButton);
+    updateThemeButton();
 
     // 탭을 켜 둔 채 날짜가 바뀌어도 다시 볼 때 오늘 기준으로 갱신
     window.addEventListener('focus', render);
