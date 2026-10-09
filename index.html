@@ -4,6 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>습관 트래커</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#f6f8fa" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="습관" />
   <script>
     // 화면이 그려지기 전에 저장된 테마를 적용해서 깜빡임을 막는다
     try {
@@ -755,6 +763,9 @@
 
     function updateThemeButton() {
       themeBtn.textContent = isDark() ? '☀️ 라이트' : '🌙 다크';
+      // 설치된 앱의 상단 바 색도 지금 테마의 배경색에 맞춘다
+      const barColor = isDark() ? '#0d1117' : '#f6f8fa';
+      document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.content = barColor; });
     }
 
     themeBtn.addEventListener('click', () => {
@@ -771,6 +782,12 @@
 
     // 탭을 켜 둔 채 날짜가 바뀌어도 다시 볼 때 오늘 기준으로 갱신
     window.addEventListener('focus', render);
+
+    // ---------- PWA ----------
+    // HTTPS나 localhost에서만 등록된다 (file://, http://IP 주소에서는 건너뜀)
+    if ('serviceWorker' in navigator && window.isSecureContext) {
+      navigator.serviceWorker.register('sw.js').catch((e) => console.warn('서비스 워커 등록 실패', e));
+    }
 
     render();
   </script>
