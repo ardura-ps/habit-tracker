@@ -313,6 +313,48 @@
     /* 주간 체크표의 칸은 보기 전용 (체크는 오늘 할 일에서만) */
     span.tick { cursor: default; }
 
+    /* 메모가 있는 칸: 오른쪽 위 점, 누르면 메모 말풍선 */
+    button.tick {
+      position: relative;
+      padding: 0;
+      font: inherit;
+    }
+
+    button.tick::before {
+      content: "";
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text);
+      border: 2px solid var(--card);
+    }
+
+    .note-pop {
+      position: fixed;
+      z-index: 20;
+      width: max-content;
+      max-width: min(260px, calc(100vw - 32px));
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--text);
+      font-size: 0.9rem;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+      overflow-wrap: anywhere;
+    }
+
+    .note-pop[hidden] { display: none; }
+
+    .note-pop .note-meta {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
     .tick.sm {
       width: 24px;
       height: 24px;
@@ -966,6 +1008,12 @@
     </form>
   </dialog>
 
+  <!-- 주간 체크표 메모 말풍선 -->
+  <div class="note-pop" id="note-pop" role="dialog" aria-label="메모" hidden>
+    <div class="note-meta" id="note-meta"></div>
+    <div id="note-text"></div>
+  </div>
+
   <!-- 되돌리기 -->
   <div class="toast" id="toast" role="status" hidden>
     <span id="toast-text"></span>
@@ -974,7 +1022,7 @@
 
   <script>
     // sw.js의 CACHE와 같은 값으로 맞춘다 (새 버전 안내에 쓰임)
-    const APP_VERSION = 'habit-tracker-v4';
+    const APP_VERSION = 'habit-tracker-v5';
     const STORAGE_KEY = 'habit-tracker-v1';
     const YEAR_WEEKS = 53;
     const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1325,8 +1373,50 @@
       const future = key > toKey(today());
       const cls = ['tick sm', done ? 'on' : '', off ? 'off' : '', future ? 'future' : ''].filter(Boolean).join(' ');
       const label = `${h.name} ${cellTitle(h, key)}`;
-      return `<span class="${cls}" style="--c:${esc(h.color)};--p:${progressOn(h, key)}"
-        title="${esc(cellTitle(h, key))}" role="img" aria-label="${esc(label)}"></span>`;
+      const attrs = `class="${cls}" style="--c:${esc(h.color)};--p:${progressOn(h, key)}" aria-label="${esc(label)}"`;
+      // 메모가 있는 칸만 눌러서 메모를 볼 수 있다 (휴대폰에서는 마우스를 올려 볼 수 없으므로)
+      if (h.notes[key]) {
+        return `<button type="button" ${attrs} data-note="${h.id}" data-date="${key}" aria-haspopup="dialog"></button>`;
+      }
+      return `<span ${attrs} title="${esc(cellTitle(h, key))}" role="img"></span>`;
+    }
+
+    // ---------- 메모 말풍선 (주간 체크표) ----------
+    let noteCell = null;
+
+    function showNote(cell) {
+      const pop = document.getElementById('note-pop');
+      if (noteCell === cell) return hideNote(); // 같은 칸을 다시 누르면 닫는다
+      const h = findHabit(cell.dataset.note);
+      const key = cell.dataset.date;
+      if (!h || !h.notes[key]) return;
+
+      document.getElementById('note-meta').textContent = `${h.name} · ${cellTitle(h, key).split(' · 📝')[0]}`;
+      document.getElementById('note-text').textContent = h.notes[key];
+      pop.hidden = false;
+      noteCell = cell;
+      positionNote();
+    }
+
+    // 칸 아래에 띄우고, 화면 밖으로 나가면 위로 올리거나 좌우를 안쪽으로 맞춘다.
+    // 스크롤하면 칸을 따라가고, 칸이 화면에서 사라지면 닫는다
+    function positionNote() {
+      if (!noteCell) return;
+      const pop = document.getElementById('note-pop');
+      const r = noteCell.getBoundingClientRect();
+      const wrap = noteCell.closest('.week-wrap').getBoundingClientRect();
+      if (r.bottom < 0 || r.top > innerHeight || r.right < wrap.left || r.left > wrap.right) return hideNote();
+      const w = pop.offsetWidth;
+      const ph = pop.offsetHeight;
+      const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+      const top = r.bottom + 8 + ph > innerHeight - 8 ? r.top - 8 - ph : r.bottom + 8;
+      pop.style.left = `${left}px`;
+      pop.style.top = `${Math.max(8, top)}px`;
+    }
+
+    function hideNote() {
+      document.getElementById('note-pop').hidden = true;
+      noteCell = null;
     }
 
     function markPartial(root) {
@@ -1354,6 +1444,7 @@
     }
 
     function render() {
+      hideNote();
       keepScroll(() => {
         const t = today();
         const todayKey = toKey(t);
@@ -1775,6 +1866,9 @@
       const todayKey = toKey(today());
       let el;
 
+      if ((el = t.closest('[data-note]'))) return showNote(el);
+      if (!t.closest('#note-pop')) hideNote();
+
       if ((el = t.closest('[data-count]'))) return changeCount(el.dataset.count, todayKey, Number(el.dataset.delta));
       if ((el = t.closest('[data-memo]'))) return openMemo(el.dataset.memo, todayKey);
       if ((el = t.closest('[data-move]'))) return moveHabit(el.dataset.move, Number(el.dataset.dir));
@@ -1784,6 +1878,11 @@
     });
 
     document.getElementById('toast-undo').addEventListener('click', undo);
+
+    window.addEventListener('scroll', positionNote, { passive: true });
+    window.addEventListener('resize', positionNote);
+    document.querySelector('.week-wrap').addEventListener('scroll', positionNote, { passive: true });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') hideNote(); });
 
     document.getElementById('week-prev').addEventListener('click', () => {
       weekOffset--;
