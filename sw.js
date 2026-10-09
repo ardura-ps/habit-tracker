@@ -1,6 +1,6 @@
 // 앱 파일을 캐시에 넣어 두고 오프라인에서도 열리게 한다.
 // 파일을 바꿔서 배포할 때는 CACHE 이름의 버전을 올린다.
-const CACHE = 'habit-tracker-v3';
+const CACHE = 'habit-tracker-v4';
 const APP_FILES = [
   './',
   './index.html',

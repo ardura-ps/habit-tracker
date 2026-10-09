@@ -284,12 +284,14 @@
       transition: transform 0.12s ease;
     }
 
-    .tick:checked {
+    .tick:checked,
+    .tick.on {
       background: var(--c);
       border-color: transparent;
     }
 
-    .tick:checked::after {
+    .tick:checked::after,
+    .tick.on::after {
       content: "";
       width: 7px;
       height: 13px;
@@ -305,7 +307,11 @@
       outline-offset: 2px;
     }
 
-    .tick:disabled { opacity: 0.3; cursor: default; }
+    .tick:disabled,
+    .tick.future { opacity: 0.3; cursor: default; }
+
+    /* 주간 체크표의 칸은 보기 전용 (체크는 오늘 할 일에서만) */
+    span.tick { cursor: default; }
 
     .tick.sm {
       width: 24px;
@@ -313,14 +319,15 @@
       border-radius: 5px;
     }
 
-    .tick.sm:checked::after {
+    .tick.sm:checked::after,
+    .tick.sm.on::after {
       width: 6px;
       height: 11px;
       border-width: 0 2.5px 2.5px 0;
     }
 
     /* 쉬는 요일: 점선 빈칸 */
-    .tick.off:not(:checked) {
+    .tick.off:not(:checked):not(.on) {
       background: transparent;
       border: 1px dashed var(--border);
     }
@@ -426,8 +433,6 @@
     .cell.lv4 { background: var(--lv4); }
     .cell.future { background: transparent; outline: none; }
     .cell.is-today { outline: 2px solid var(--text); outline-offset: -1px; }
-    .cell.clickable { cursor: pointer; }
-    .cell.clickable:hover { outline: 1px solid var(--muted); }
 
     .legend {
       display: flex;
@@ -969,7 +974,7 @@
 
   <script>
     // sw.js의 CACHE와 같은 값으로 맞춘다 (새 버전 안내에 쓰임)
-    const APP_VERSION = 'habit-tracker-v3';
+    const APP_VERSION = 'habit-tracker-v4';
     const STORAGE_KEY = 'habit-tracker-v1';
     const YEAR_WEEKS = 53;
     const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1301,15 +1306,27 @@
     }
 
     // 잔디 칸 모양 체크박스. 목표를 일부만 채운 날은 그만큼 아래에서 차오르고 '-' 상태가 된다
-    function tickHtml(h, key, { small = false, id = '' } = {}) {
+    function tickHtml(h, key, id) {
       const count = countOn(h, key);
       const done = isDone(h, key);
       const off = !count && !isScheduled(h, key);
-      const cls = ['tick', small ? 'sm' : '', off ? 'off' : ''].filter(Boolean).join(' ');
+      const cls = off ? 'tick off' : 'tick';
       return `<input type="checkbox" class="${cls}" ${id ? `id="${id}"` : ''} data-habit="${h.id}" data-date="${key}"
         style="--c:${esc(h.color)};--p:${Math.min(1, count / h.target)}" title="${esc(cellTitle(h, key))}"
         aria-label="${esc(h.name)} ${key}" ${done ? 'checked' : ''} ${count && !done ? 'data-partial' : ''}
         ${key > toKey(today()) ? 'disabled' : ''} />`;
+    }
+
+    // 보기 전용 칸: 체크박스와 같은 모양이지만 누를 수 없다
+    function tickView(h, key) {
+      const count = countOn(h, key);
+      const done = isDone(h, key);
+      const off = !count && !isScheduled(h, key);
+      const future = key > toKey(today());
+      const cls = ['tick sm', done ? 'on' : '', off ? 'off' : '', future ? 'future' : ''].filter(Boolean).join(' ');
+      const label = `${h.name} ${cellTitle(h, key)}`;
+      return `<span class="${cls}" style="--c:${esc(h.color)};--p:${progressOn(h, key)}"
+        title="${esc(cellTitle(h, key))}" role="img" aria-label="${esc(label)}"></span>`;
     }
 
     function markPartial(root) {
@@ -1429,7 +1446,7 @@
           </div>` : '';
         return `
           <li class="${done ? 'done' : ''}">
-            ${tickHtml(h, todayKey, { id: `todo-${h.id}` })}
+            ${tickHtml(h, todayKey, `todo-${h.id}`)}
             <div class="todo-main">
               <label for="todo-${h.id}">${esc(h.name)}</label>
               ${note ? `<div class="todo-note">📝 ${esc(note)}</div>` : ''}
@@ -1463,12 +1480,11 @@
       const rows = habits.map(h => {
         const doneCount = days.reduce((sum, key) => sum + progressOn(h, key), 0);
         const planned = days.filter(key => isScheduled(h, key) && key >= startKey(h)).length;
-        const cells = days.map(key => `<td>${tickHtml(h, key, { small: true })}</td>`).join('');
+        const cells = days.map(key => `<td>${tickView(h, key)}</td>`).join('');
         return `<tr><td title="${esc(h.name)}">${esc(h.name)}</td>${cells}<td class="rate">${fmtNum(doneCount)}/${planned}</td></tr>`;
       }).join('');
 
       table.innerHTML = `<thead><tr><th>습관</th>${head}<th>달성</th></tr></thead><tbody>${rows}</tbody>`;
-      markPartial(table);
     }
 
     // weeks주 × 7일 날짜 목록 (맨 오른쪽 열이 이번 주)
@@ -1524,9 +1540,8 @@
           const p = progressOn(h, key);
           const fill = p >= 1 ? esc(h.color) : `color-mix(in srgb, ${esc(h.color)} ${Math.round(25 + p * 50)}%, var(--lv0))`;
           const style = p ? ` style="background:${fill}"` : '';
-          const cls = ['cell clickable', key === todayKey ? 'is-today' : ''].filter(Boolean).join(' ');
-          return `<div class="${cls}" data-habit="${h.id}" data-date="${key}"${style}
-            title="${esc(cellTitle(h, key))} (클릭해서 변경)"></div>`;
+          const cls = ['cell', key === todayKey ? 'is-today' : ''].filter(Boolean).join(' ');
+          return `<div class="${cls}"${style} title="${esc(cellTitle(h, key))}"></div>`;
         }).join('');
         const meta = [scheduleLabel(h.days), h.target > 1 ? `하루 ${h.target}회` : '', `총 ${doneDays(h)}일`]
           .filter(Boolean).join(' · ');
@@ -1760,7 +1775,6 @@
       const todayKey = toKey(today());
       let el;
 
-      if ((el = t.closest('.cell.clickable'))) return toggle(el.dataset.habit, el.dataset.date);
       if ((el = t.closest('[data-count]'))) return changeCount(el.dataset.count, todayKey, Number(el.dataset.delta));
       if ((el = t.closest('[data-memo]'))) return openMemo(el.dataset.memo, todayKey);
       if ((el = t.closest('[data-move]'))) return moveHabit(el.dataset.move, Number(el.dataset.dir));
